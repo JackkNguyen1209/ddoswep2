@@ -1,0 +1,71 @@
+{
+  "model_id": "model_8b5e663e9f64",
+  "algorithm": "dt",
+  "algorithm_name": "Decision Tree",
+  "hyperparams": {},
+  "preprocess_id": null,
+  "selection_id": null,
+  "target_column": "label",
+  "raw_feature_names": [
+    "f1",
+    "f2"
+  ],
+  "numeric_cols": [
+    "f1",
+    "f2"
+  ],
+  "categorical_cols": [],
+  "categorical_encoding": "onehot",
+  "scaling": "standard",
+  "missing_strategy": "mean",
+  "n_transformed": 2,
+  "raw_to_transformed_idx": {
+    "f1": [
+      0
+    ],
+    "f2": [
+      1
+    ]
+  },
+  "label_classes": [
+    "A",
+    "B"
+  ],
+  "class_stats": {
+    "A": {
+      "f1": {
+        "mean": 4.5,
+        "std": 3.4157
+      },
+      "f2": {
+        "mean": 0.45,
+        "std": 0.3416
+      }
+    },
+    "B": {
+      "f1": {
+        "mean": 5.0,
+        "std": 2.582
+      },
+      "f2": {
+        "mean": 0.5,
+        "std": 0.2582
+      }
+    }
+  },
+  "experiment_id": "exp_e06a63e8b0c6",
+  "global_importance": {
+    "method": "feature_importances",
+    "top_features": [
+      {
+        "name": "f1",
+        "score": 0.5595
+      },
+      {
+        "name": "f2",
+        "score": 0.4405
+      }
+    ],
+    "notes": "Computed from feature_importances; top 2 raw features."
+  }
+}

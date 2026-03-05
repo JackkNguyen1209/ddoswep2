@@ -1,0 +1,84 @@
+version: '3.9'
+
+# All values come from .env (copy .env.example → .env and set PUBLIC_HOST).
+# Docker Compose automatically loads .env from the project directory.
+#
+# Quick reference:
+#   PUBLIC_HOST              VM IP or hostname
+#   PUBLIC_PROTO             http | https
+#   WEB_PORT / API_PORT      host ports
+#   NEXT_PUBLIC_API_BASE_URL must equal ${PUBLIC_PROTO}://${PUBLIC_HOST}:${API_PORT}
+#   ALLOWED_ORIGINS          must equal ${PUBLIC_PROTO}://${PUBLIC_HOST}:${WEB_PORT}
+#
+# NEXT_PUBLIC_* is baked into the JS bundle at build time, so it is passed
+# both as a build arg (for `pnpm build`) and as a runtime env variable.
+
+services:
+  api:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+      # network: host bypasses Docker bridge so pip reaches PyPI even on VMs
+      # where Docker NAT/forwarding is restricted.
+      network: host
+    container_name: ddos-api
+    ports:
+      - "${API_PORT:-8000}:8000"
+    environment:
+      - DATA_DIR=/app/data
+      - ALLOWED_ORIGINS=${ALLOWED_ORIGINS:-http://localhost:3000}
+      - MAX_UPLOAD_MB=${MAX_UPLOAD_MB:-200}
+      - MAX_CAT_CATEGORIES=${MAX_CAT_CATEGORIES:-2000}
+    volumes:
+      - ./data:/app/data
+    restart: unless-stopped
+    dns:
+      - 8.8.8.8
+      - 1.1.1.1
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/health')"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
+    networks:
+      - ddos-network
+
+  web:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      # network: host so pnpm/npm can reach the registry during build
+      network: host
+      args:
+        # Baked into the JS bundle at build time
+        NEXT_PUBLIC_API_BASE_URL: ${NEXT_PUBLIC_API_BASE_URL:-http://localhost:8000}
+    container_name: ddos-web
+    ports:
+      - "${WEB_PORT:-3000}:3000"
+    environment:
+      - NODE_ENV=production
+      - NEXT_PUBLIC_API_BASE_URL=${NEXT_PUBLIC_API_BASE_URL:-http://localhost:8000}
+    depends_on:
+      api:
+        condition: service_healthy
+    restart: unless-stopped
+    dns:
+      - 8.8.8.8
+      - 1.1.1.1
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    healthcheck:
+      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost:3000"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+    networks:
+      - ddos-network
+
+networks:
+  ddos-network:
+    driver: bridge

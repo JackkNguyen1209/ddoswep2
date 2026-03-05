@@ -1,0 +1,33 @@
+[Unit]
+Description=ddoswep — DDoS ML Detection (Next.js + FastAPI via Docker Compose)
+Documentation=https://github.com/ddoswep
+After=docker.service network-online.target
+Wants=network-online.target
+Requires=docker.service
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+WorkingDirectory=/home/ubuntu/ddoswep
+
+# Use compose wrapper to support both "docker compose" and "docker-compose"
+ExecStartPre=/home/ubuntu/ddoswep/scripts/compose.sh pull --ignore-pull-failures || true
+ExecStart=/home/ubuntu/ddoswep/scripts/compose.sh up -d --build
+ExecStop=/home/ubuntu/ddoswep/scripts/compose.sh down
+
+# Restart docker-compose if containers crash
+Restart=on-failure
+RestartSec=10s
+
+# Give docker compose enough time to build on first run
+TimeoutStartSec=300
+TimeoutStopSec=60
+
+# Env: ensure data dir exists before start
+ExecStartPre=/bin/bash -c 'mkdir -p /home/ubuntu/ddoswep/data/datasets /home/ubuntu/ddoswep/data/models /home/ubuntu/ddoswep/data/experiments'
+
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=multi-user.target
