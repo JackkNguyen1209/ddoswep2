@@ -5,7 +5,8 @@ import Link from 'next/link'
 import { Button } from '@/components/ui/button'
 import { Card } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
-import { ChevronLeft, Lightbulb, Loader2, AlertCircle } from 'lucide-react'
+import { ChevronLeft, Lightbulb, Loader2, AlertCircle, GitCompare } from 'lucide-react'
+import { AIComparePanel, renderString } from '@/components/ai-compare-panel'
 import { api, type GlobalExplainResponse } from '@/lib/api'
 
 export default function ExplainabilityPage() {
@@ -13,20 +14,21 @@ export default function ExplainabilityPage() {
   const [explainData, setExplainData] = useState<GlobalExplainResponse | null>(null)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
+  const [compareMode, setCompareMode] = useState(false)
 
   useEffect(() => {
     const mid = localStorage.getItem('model_id')
     if (mid) {
       setModelId(mid)
-      fetchExplain(mid)
+      fetchExplain(mid, false)
     }
   }, [])
 
-  const fetchExplain = async (mid: string) => {
+  const fetchExplain = async (mid: string, compare: boolean) => {
     setLoading(true)
     setError('')
     try {
-      const result = await api.explainGlobal(mid)
+      const result = await api.explainGlobal(mid, compare)
       setExplainData(result)
     } catch (err) {
       const msg = err instanceof Error ? err.message : 'Lỗi'
@@ -34,6 +36,13 @@ export default function ExplainabilityPage() {
     } finally {
       setLoading(false)
     }
+  }
+
+  const toggleCompare = () => {
+    if (!modelId) return
+    const next = !compareMode
+    setCompareMode(next)
+    fetchExplain(modelId, next)
   }
 
   const maxScore = explainData ? Math.max(...explainData.top_features.map(f => f.score), 0.001) : 1
@@ -87,9 +96,30 @@ export default function ExplainabilityPage() {
                   <Lightbulb className="w-6 h-6 text-primary" />
                   Feature Importance (Top {explainData.top_features.length})
                 </h2>
-                <Badge variant="outline">{explainData.method}</Badge>
+                <div className="flex items-center gap-2">
+                  <Badge variant="outline">{explainData.method}</Badge>
+                  <button
+                    onClick={toggleCompare}
+                    disabled={loading}
+                    className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium border transition-colors ${
+                      compareMode
+                        ? 'bg-violet-500/15 border-violet-500/40 text-violet-700 dark:text-violet-300'
+                        : 'bg-muted border-border text-muted-foreground hover:text-foreground'
+                    }`}
+                  >
+                    <GitCompare className="w-3.5 h-3.5" />
+                    {loading ? 'Đang tải...' : 'Claude vs Ollama'}
+                  </button>
+                </div>
               </div>
               <p className="text-sm text-muted-foreground mb-6">{explainData.notes}</p>
+              {explainData.compare_data && (
+                <AIComparePanel
+                  compareData={explainData.compare_data}
+                  renderResult={(v) => renderString(v)}
+                  label="So sánh phân tích AI"
+                />
+              )}
 
               <div className="space-y-3">
                 {explainData.top_features.map((f, i) => (

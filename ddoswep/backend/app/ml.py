@@ -84,6 +84,11 @@ from .storage import (
     selection_exists,
 )
 
+from .ai_explain import (
+    ai_global_narrative, ai_local_explain, ai_model_details,
+    ai_global_narrative_compare, ai_local_explain_compare, ai_model_details_compare,
+)
+
 logger = logging.getLogger(__name__)
 
 ALGO_NAMES: Dict[str, str] = {
@@ -1351,14 +1356,34 @@ def _prepare_input(features: Dict[str, Any], meta: Dict[str, Any]) -> pd.DataFra
 
 # ── explain / global ──────────────────────────────────────────────────────────
 
-def run_global_explain(model_id: str) -> GlobalExplainResponse:
+def run_global_explain(model_id: str, compare: bool = False) -> GlobalExplainResponse:
     meta = load_model_meta(model_id)
     if meta.get("global_importance"):
         cached = meta["global_importance"]
+        cached_notes = cached.get("notes", "")
+        # Regenerate notes nếu là template cũ tiếng Anh (chưa có AI)
+        _is_old_template = cached_notes.startswith("Computed from") or not cached_notes
+        if not _is_old_template:
+            return GlobalExplainResponse(
+                method=cached["method"],
+                top_features=[GlobalFeatureImportance(**f) for f in cached["top_features"]],
+                notes=cached_notes,
+            )
+        # Upgrade cache: giữ feature data, regenerate notes bằng AI
+        top_features_cached = [GlobalFeatureImportance(**f) for f in cached["top_features"]]
+        algo_name = meta.get("algorithm_name", meta.get("algorithm", ""))
+        new_notes = ai_global_narrative(
+            algorithm_name=algo_name,
+            top_features=top_features_cached,
+            method=cached["method"],
+        )
+        cached["notes"] = new_notes
+        meta["global_importance"] = cached
+        save_model_meta(model_id, meta)
         return GlobalExplainResponse(
             method=cached["method"],
-            top_features=[GlobalFeatureImportance(**f) for f in cached["top_features"]],
-            notes=cached.get("notes", ""),
+            top_features=top_features_cached,
+            notes=new_notes,
         )
 
     payload = load_model(model_id)
@@ -1421,20 +1446,46 @@ def run_global_explain(model_id: str) -> GlobalExplainResponse:
         reverse=True,
     )[:20]
 
+    algo_name = meta.get("algorithm_name", meta.get("algorithm", ""))
+
+    compare_data = None
+    if compare:
+        cmp = ai_global_narrative_compare(
+            algorithm_name=algo_name,
+            top_features=top_features,
+            method=method,
+        )
+        narrative = cmp.get("claude") or cmp.get("ollama") or (
+            f"Phân tích tầm quan trọng đặc trưng bằng phương pháp {method}."
+        )
+        from .schemas import AICompareData  # noqa: PLC0415
+        compare_data = AICompareData(**cmp)
+    else:
+        narrative = ai_global_narrative(
+            algorithm_name=algo_name,
+            top_features=top_features,
+            method=method,
+        )
+
     result_dict = {
         "method": method,
         "top_features": [f.model_dump() for f in top_features],
-        "notes": f"Computed from {method}; top {len(top_features)} raw features.",
+        "notes": narrative,
     }
     meta["global_importance"] = result_dict
     save_model_meta(model_id, meta)
 
-    return GlobalExplainResponse(method=method, top_features=top_features, notes=result_dict["notes"])
+    return GlobalExplainResponse(
+        method=method,
+        top_features=top_features,
+        notes=narrative,
+        compare_data=compare_data,
+    )
 
 
 # ── explain / local ───────────────────────────────────────────────────────────
 
-def run_local_explain(model_id: str, features: Dict[str, Any]) -> LocalExplainResponse:
+def run_local_explain(model_id: str, features: Dict[str, Any], compare: bool = False) -> LocalExplainResponse:
     payload = load_model(model_id)
     meta = load_model_meta(model_id)
     pipeline = payload["pipeline"]
@@ -1597,9 +1648,28 @@ def run_local_explain(model_id: str, features: Dict[str, Any]) -> LocalExplainRe
             "prob_delta_pct": round(score * 100, 1),
         })
 
-    vi_explanation = _generate_vietnamese_explanation(
-        pred_label, formatted, ddos_label, prob, perturb_info
-    )
+    compare_data = None
+    if compare:
+        cmp = ai_local_explain_compare(
+            pred_label=pred_label,
+            probability=prob,
+            top_contributions=formatted,
+            ddos_label=ddos_label,
+            perturb_info=perturb_info,
+            class_stats=class_stats,
+        )
+        vi_explanation = cmp.get("claude") or cmp.get("ollama") or []
+        from .schemas import AICompareData  # noqa: PLC0415
+        compare_data = AICompareData(**cmp)
+    else:
+        vi_explanation = ai_local_explain(
+            pred_label=pred_label,
+            probability=prob,
+            top_contributions=formatted,
+            ddos_label=ddos_label,
+            perturb_info=perturb_info,
+            class_stats=class_stats,
+        )
 
     return LocalExplainResponse(
         prediction=pred_label,
@@ -1614,6 +1684,7 @@ def run_local_explain(model_id: str, features: Dict[str, Any]) -> LocalExplainRe
             encoding=encoding,
             note=f"Top-10 contributions via {method}.",
         ),
+        compare_data=compare_data,
     )
 
 
@@ -1681,22 +1752,54 @@ def _generate_vietnamese_explanation(
 
 # ── details_vi ────────────────────────────────────────────────────────────────
 
-def run_details_vi(model_id: str) -> ModelDetailsVI:
+def run_details_vi(model_id: str, compare: bool = False) -> ModelDetailsVI:
     meta = load_model_meta(model_id)
     algorithm = meta.get("algorithm", "")
     hyperparams = meta.get("hyperparams", {})
     algo_name = meta.get("algorithm_name", ALGO_NAMES.get(algorithm, algorithm))
 
+    # Try cached AI result first, then generate fresh
+    ai_result = meta.get("ai_details_vi")
+    compare_data = None
+
+    if compare:
+        # Always run both models fresh for comparison (skip cache for compare mode)
+        cmp = ai_model_details_compare(algorithm, algo_name, hyperparams)
+        ai_result = cmp.get("claude") or cmp.get("ollama") or ai_result
+        from .schemas import AICompareData  # noqa: PLC0415
+        compare_data = AICompareData(**cmp)
+    elif not ai_result:
+        ai_result = ai_model_details(algorithm, algo_name, hyperparams)
+        if ai_result:
+            meta["ai_details_vi"] = ai_result
+            save_model_meta(model_id, meta)
+
+    if ai_result:
+        sections = [ModelDetailSection(**s) for s in ai_result.get("sections", [])]
+        hp_meanings = ai_result.get("hyperparams_meanings", {})
+        hp_table = [
+            HyperparamVI(name=k, value=str(v), meaning_vi=hp_meanings.get(k, k))
+            for k, v in hyperparams.items()
+        ]
+        return ModelDetailsVI(
+            title=algo_name,
+            algorithm_key=algorithm,
+            sections=sections,
+            hyperparams_table=hp_table,
+            how_used_in_pipeline=ai_result.get("how_used_in_pipeline", []),
+            limitations_for_ddos=ai_result.get("limitations_for_ddos", []),
+            compare_data=compare_data,
+        )
+
+    # Fallback: static template
     details = _ALGO_DETAILS_VI.get(algorithm, _ALGO_DETAILS_VI["rf"])
     hp_vi_map = _HYPERPARAMS_VI.get(algorithm, {})
-
     hp_table = [
         HyperparamVI(name=k, value=str(v), meaning_vi=hp_vi_map.get(k, k))
         for k, v in hyperparams.items()
     ]
-
     return ModelDetailsVI(
-        title=f"{algo_name}",
+        title=algo_name,
         algorithm_key=algorithm,
         sections=details["sections"],
         hyperparams_table=hp_table,

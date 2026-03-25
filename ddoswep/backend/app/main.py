@@ -988,7 +988,7 @@ def model_meta(model_id: str):
 
 
 @app.get("/api/models/{model_id}/explain/global", response_model=GlobalExplainResponse)
-def explain_global(model_id: str):
+def explain_global(model_id: str, compare: bool = False):
     global _explain_global_in_flight, _explain_global_cache_hit, _explain_global_cache_miss
     global _explain_global_error_count
     meta = load_model_meta(model_id)
@@ -1002,7 +1002,7 @@ def explain_global(model_id: str):
         _explain_global_in_flight += 1
     _ok = False
     try:
-        result = run_global_explain(model_id)
+        result = run_global_explain(model_id, compare=compare)
         _ok = True
     except FileNotFoundError:
         raise HTTPException(status_code=404, detail=f"Model '{model_id}' not found")
@@ -1026,7 +1026,7 @@ def explain_global(model_id: str):
 
 
 @app.post("/api/models/{model_id}/explain/local", response_model=LocalExplainResponse)
-def explain_local(model_id: str, req: LocalExplainRequest):
+def explain_local(model_id: str, req: LocalExplainRequest, compare: bool = False):
     global _explain_local_validation_fail, _explain_local_error_count
     meta = load_model_meta(model_id)
     if not meta:
@@ -1034,7 +1034,7 @@ def explain_local(model_id: str, req: LocalExplainRequest):
             _explain_local_error_count += 1
         raise HTTPException(status_code=404, detail=f"Model '{model_id}' not found")
     try:
-        return run_local_explain(model_id, req.features)
+        return run_local_explain(model_id, req.features, compare=compare)
     except FileNotFoundError:
         with _stats_lock:
             _explain_local_error_count += 1
@@ -1053,12 +1053,12 @@ def explain_local(model_id: str, req: LocalExplainRequest):
 
 
 @app.get("/api/models/{model_id}/details_vi", response_model=ModelDetailsVI)
-def model_details_vi(model_id: str):
+def model_details_vi(model_id: str, compare: bool = False):
     meta = load_model_meta(model_id)
     if not meta:
         raise HTTPException(status_code=404, detail=f"Model '{model_id}' not found or has no meta")
     try:
-        return run_details_vi(model_id)
+        return run_details_vi(model_id, compare=compare)
     except Exception as e:
         logger.exception("Model details_vi failed")
         raise HTTPException(status_code=500, detail=str(e))

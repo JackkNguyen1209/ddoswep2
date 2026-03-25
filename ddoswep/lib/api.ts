@@ -254,11 +254,19 @@ export interface HPOResponse {
   all_trials: Array<{ number: number; value: number; params: Record<string, unknown> }>
 }
 
+export interface AICompareData {
+  claude: unknown
+  ollama: unknown
+  model_claude: string
+  model_ollama: string
+}
+
 export interface GlobalFeatureImportance { name: string; score: number }
 export interface GlobalExplainResponse {
   method: string
   top_features: GlobalFeatureImportance[]
   notes: string
+  compare_data?: AICompareData
 }
 
 export interface LocalContribution {
@@ -285,6 +293,7 @@ export interface LocalExplainResponse {
   top_contributions: LocalContribution[]
   vietnamese_explanation: string[]
   trace: ExplainTrace
+  compare_data?: AICompareData
 }
 
 export interface HyperparamVI { name: string; value: string; meaning_vi: string }
@@ -300,6 +309,7 @@ export interface ModelDetailsVI {
   hyperparams_table: HyperparamVI[]
   how_used_in_pipeline: string[]
   limitations_for_ddos: string[]
+  compare_data?: AICompareData
 }
 
 // ── System Metrics ────────────────────────────────────────────────────────────
@@ -452,21 +462,24 @@ export const api = {
     })
   },
 
-  explainGlobal(modelId: string): Promise<GlobalExplainResponse> {
-    return request<GlobalExplainResponse>(`/api/models/${modelId}/explain/global`)
+  explainGlobal(modelId: string, compare = false): Promise<GlobalExplainResponse> {
+    const qs = compare ? '?compare=true' : ''
+    return request<GlobalExplainResponse>(`/api/models/${modelId}/explain/global${qs}`)
   },
 
-  explainLocal(modelId: string, features: Record<string, unknown>): Promise<LocalExplainResponse> {
-    return request<LocalExplainResponse>(`/api/models/${modelId}/explain/local`, {
+  explainLocal(modelId: string, features: Record<string, unknown>, compare = false): Promise<LocalExplainResponse> {
+    const qs = compare ? '?compare=true' : ''
+    return request<LocalExplainResponse>(`/api/models/${modelId}/explain/local${qs}`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ features }),
-    }, 60_000)
+    }, 120_000)
   },
 
-      modelDetailsVI(modelId: string): Promise<ModelDetailsVI> {
-        return request<ModelDetailsVI>(`/api/models/${modelId}/details_vi`)
-      },
+  modelDetailsVI(modelId: string, compare = false): Promise<ModelDetailsVI> {
+    const qs = compare ? '?compare=true' : ''
+    return request<ModelDetailsVI>(`/api/models/${modelId}/details_vi${qs}`)
+  },
 
   /** Returns lightweight model metadata including raw_feature_names. */
   getModelMeta(modelId: string): Promise<ModelMeta> {

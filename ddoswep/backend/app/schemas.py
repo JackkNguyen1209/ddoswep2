@@ -218,10 +218,19 @@ class GlobalFeatureImportance(BaseModel):
     score: float
 
 
+class AICompareData(BaseModel):
+    """Holds both Claude and Ollama results for side-by-side comparison."""
+    claude: Optional[Any] = None
+    ollama: Optional[Any] = None
+    model_claude: str = "claude-opus-4-6"
+    model_ollama: str = "qwen2.5:7b"
+
+
 class GlobalExplainResponse(BaseModel):
     method: str
     top_features: List[GlobalFeatureImportance]
     notes: str
+    compare_data: Optional[AICompareData] = None
 
 
 class LocalContribution(BaseModel):
@@ -252,6 +261,7 @@ class LocalExplainResponse(BaseModel):
     top_contributions: List[LocalContribution]
     vietnamese_explanation: List[str]
     trace: ExplainTrace
+    compare_data: Optional[AICompareData] = None
 
 
 # ── Model Details (Vietnamese) ────────────────────────────────────────────────
@@ -275,6 +285,7 @@ class ModelDetailsVI(BaseModel):
     hyperparams_table: List[HyperparamVI]
     how_used_in_pipeline: List[str]
     limitations_for_ddos: List[str]
+    compare_data: Optional[AICompareData] = None
 
 
 # ── FAMS Feature Selection ───────────────────────────────────────────────────

@@ -5,9 +5,10 @@ import Link from 'next/link'
 import { Button } from '@/components/ui/button'
 import { Card } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
-import { ChevronLeft, AlertCircle, Loader2, Lightbulb } from 'lucide-react'
+import { ChevronLeft, AlertCircle, Loader2, Lightbulb, GitCompare } from 'lucide-react'
 import { PredictionForm } from '@/components/prediction/prediction-form'
 import { PredictionResult } from '@/components/prediction/prediction-result'
+import { AIComparePanel, renderLines } from '@/components/ai-compare-panel'
 import { api, type LocalExplainResponse } from '@/lib/api'
 
 export default function PredictionPage() {
@@ -20,6 +21,8 @@ export default function PredictionPage() {
   const [explain, setExplain] = useState<LocalExplainResponse | null>(null)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
+  const [compareMode, setCompareMode] = useState(false)
+  const [compareLoading, setCompareLoading] = useState(false)
 
   useEffect(() => {
     const mid = localStorage.getItem('model_id')
@@ -41,7 +44,7 @@ export default function PredictionPage() {
       // Predict + Explain in parallel
       const [result, explainResult] = await Promise.all([
         api.predict(modelId, data),
-        api.explainLocal(modelId, data).catch(() => null),
+        api.explainLocal(modelId, data, compareMode).catch(() => null),
       ])
 
       const prob = result.probability
@@ -109,15 +112,29 @@ export default function PredictionPage() {
 
         {/* Input form */}
         <Card className="bg-card border-border p-8 mb-6">
-          <h2 className="text-2xl font-bold mb-2">Nhập dữ liệu lưu lượng mạng</h2>
+          <div className="flex items-start justify-between mb-2">
+            <h2 className="text-2xl font-bold">Nhập dữ liệu lưu lượng mạng</h2>
+            <button
+              onClick={() => setCompareMode(v => !v)}
+              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium border transition-colors ${
+                compareMode
+                  ? 'bg-violet-500/15 border-violet-500/40 text-violet-700 dark:text-violet-300'
+                  : 'bg-muted border-border text-muted-foreground hover:text-foreground'
+              }`}
+            >
+              <GitCompare className="w-3.5 h-3.5" />
+              So sánh Claude vs Ollama
+            </button>
+          </div>
           <p className="text-muted-foreground mb-6 text-sm">
             Điền các đặc trưng để nhận dự đoán + giải thích tại sao mô hình đưa ra kết luận đó.
+            {compareMode && <span className="ml-1 text-violet-600 dark:text-violet-400 font-medium">Chế độ so sánh đang bật — chạy Claude + Ollama song song.</span>}
           </p>
-                      <PredictionForm modelId={modelId} onPredict={handlePredict} />
+          <PredictionForm modelId={modelId} onPredict={handlePredict} />
           {loading && (
             <div className="flex items-center gap-2 mt-4 text-muted-foreground">
               <Loader2 className="w-4 h-4 animate-spin" />
-              <span className="text-sm">Đang dự đoán và giải thích...</span>
+              <span className="text-sm">{compareMode ? 'Đang chạy Claude + Ollama song song...' : 'Đang dự đoán và giải thích...'}</span>
             </div>
           )}
         </Card>
@@ -148,7 +165,7 @@ export default function PredictionPage() {
             }`}>
               <div className="flex items-start gap-3">
                 <Lightbulb className="w-5 h-5 mt-0.5 flex-shrink-0 text-primary" />
-                <div>
+                <div className="w-full">
                   <h3 className="font-bold mb-2">🤖 Vì sao mô hình đưa ra kết luận này?</h3>
                   <div className="space-y-1">
                     {explain.vietnamese_explanation.map((line, i) => (
@@ -159,6 +176,13 @@ export default function PredictionPage() {
                       }`}>{line}</p>
                     ))}
                   </div>
+                  {explain.compare_data && (
+                    <AIComparePanel
+                      compareData={explain.compare_data}
+                      renderResult={(v) => renderLines(v)}
+                      label="So sánh giải thích AI"
+                    />
+                  )}
                 </div>
               </div>
             </Card>

@@ -5,10 +5,11 @@ import Link from 'next/link'
 import { Button } from '@/components/ui/button'
 import { Card } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
-import { ChevronLeft, BookOpen, Loader2, AlertCircle } from 'lucide-react'
+import { ChevronLeft, BookOpen, Loader2, AlertCircle, GitCompare } from 'lucide-react'
 import { vi } from '@/lib/vi'
 import { AlgorithmDetailCard } from '@/components/model-details/algorithm-detail-card'
 import { PredictionExplainer } from '@/components/model-details/prediction-explainer'
+import { AIComparePanel, renderSections } from '@/components/ai-compare-panel'
 import { api, type ModelDetailsVI } from '@/lib/api'
 
 const algorithms = [
@@ -245,6 +246,7 @@ export default function ModelDetailsPage() {
   const [detailsVI, setDetailsVI] = useState<ModelDetailsVI | null>(null)
   const [loadingVI, setLoadingVI] = useState(false)
   const [errorVI, setErrorVI] = useState('')
+  const [compareVI, setCompareVI] = useState(false)
 
   useEffect(() => {
     const mid = localStorage.getItem('model_id')
@@ -256,7 +258,7 @@ export default function ModelDetailsPage() {
     setLoadingVI(true)
     setErrorVI('')
     try {
-      const result = await api.modelDetailsVI(modelId)
+      const result = await api.modelDetailsVI(modelId, compareVI)
       setDetailsVI(result)
     } catch (err) {
       const msg = err instanceof Error ? err.message : 'Lỗi'
@@ -326,10 +328,24 @@ export default function ModelDetailsPage() {
                 <BookOpen className="w-6 h-6 text-primary" />
                 Chi tiết mô hình đã huấn luyện (tiếng Việt)
               </h2>
-              <Button onClick={fetchDetailsVI} disabled={loadingVI} variant="outline" size="sm" className="gap-2">
-                {loadingVI ? <Loader2 className="w-4 h-4 animate-spin" /> : null}
-                {detailsVI ? 'Tải lại' : 'Xem chi tiết thuật toán'}
-              </Button>
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={() => setCompareVI(v => !v)}
+                  disabled={loadingVI}
+                  className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium border transition-colors ${
+                    compareVI
+                      ? 'bg-violet-500/15 border-violet-500/40 text-violet-700 dark:text-violet-300'
+                      : 'bg-muted border-border text-muted-foreground hover:text-foreground'
+                  }`}
+                >
+                  <GitCompare className="w-3.5 h-3.5" />
+                  Claude vs Ollama
+                </button>
+                <Button onClick={fetchDetailsVI} disabled={loadingVI} variant="outline" size="sm" className="gap-2">
+                  {loadingVI ? <Loader2 className="w-4 h-4 animate-spin" /> : null}
+                  {detailsVI ? 'Tải lại' : 'Xem chi tiết thuật toán'}
+                </Button>
+              </div>
             </div>
             <p className="text-xs text-muted-foreground mb-4">Model: <code className="text-primary">{modelId}</code></p>
 
@@ -347,6 +363,13 @@ export default function ModelDetailsPage() {
                     <h3 className="text-xl font-bold">{detailsVI.title}</h3>
                     <Badge variant="outline">{detailsVI.algorithm_key.toUpperCase()}</Badge>
                   </div>
+                  {detailsVI.compare_data && (
+                    <AIComparePanel
+                      compareData={detailsVI.compare_data}
+                      renderResult={(v) => renderSections(v)}
+                      label="So sánh giải thích thuật toán"
+                    />
+                  )}
 
                   {detailsVI.sections.map((sec, i) => (
                     <div key={i} className="mb-4">

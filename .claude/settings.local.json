@@ -1,0 +1,29 @@
+{
+  "permissions": {
+    "allow": [
+      "Skill(claude-api)",
+      "Skill(claude-api:*)",
+      "Bash(pip show:*)",
+      "Bash(py --version)",
+      "Bash(where python3:*)",
+      "Bash(where py:*)",
+      "Bash(docker --version)",
+      "Bash(ls /c/Python*)",
+      "Read(//c/Users/ASUS/AppData/Local/Programs/**)",
+      "Read(//c/ProgramData/**)",
+      "Read(//c/Users/ASUS/**)",
+      "Bash(cmd.exe /c \"where python\")",
+      "Bash(cmd.exe /c \"python --version\")",
+      "Bash(cmd.exe /c \"pip --version\")",
+      "Bash(cmd.exe /c \"python --version 2>&1 & pip --version 2>&1 & where python 2>&1\")",
+      "Bash(powershell.exe -Command \"Get-Command python -ErrorAction SilentlyContinue | Select-Object Source; Get-Command python3 -ErrorAction SilentlyContinue | Select-Object Source; Get-Command py -ErrorAction SilentlyContinue | Select-Object Source\")",
+      "Bash(powershell.exe -Command \"& ''C:\\\\Users\\\\ASUS\\\\AppData\\\\Local\\\\Microsoft\\\\WindowsApps\\\\python3.exe'' --version\")",
+      "Bash(powershell.exe -Command \"Get-ChildItem ''C:\\\\ProgramData'' -Filter ''python*'' -ErrorAction SilentlyContinue | Select Name; Get-ChildItem ''C:\\\\Users\\\\ASUS'' -Filter ''*conda*'' -ErrorAction SilentlyContinue | Select Name; Get-ChildItem ''C:\\\\Users\\\\ASUS'' -Filter ''*python*'' -ErrorAction SilentlyContinue | Select Name\")",
+      "Bash(powershell.exe -Command \":*)",
+      "Bash(powershell.exe -Command \"Get-ChildItem ''HKLM:\\\\SOFTWARE\\\\Python'' -ErrorAction SilentlyContinue; Get-ChildItem ''HKCU:\\\\SOFTWARE\\\\Python'' -ErrorAction SilentlyContinue\")",
+      "Read(//etc/**)",
+      "Read(//usr/**)",
+      "Bash(wsl python3:*)"
+    ]
+  }
+}
