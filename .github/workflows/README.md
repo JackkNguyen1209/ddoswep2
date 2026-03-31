@@ -74,11 +74,22 @@ Tag v1.2.3:
 - `5e09865` - Short commit hash (7 characters) for exact version tracking
 - `main-5e09865` - Branch + commit (useful for debugging)
 
-### Multi-Platform Builds
+### Single-Platform Builds
 
-Images are built for both `linux/amd64` (x86) and `linux/arm64` (ARM) architectures using Docker buildx.
+Images are built for `linux/amd64` (x86) architecture only to minimize GitHub Actions minutes usage on free tier.
 
-To use a specific architecture in Kubernetes:
+For multi-platform support (amd64 + arm64), modify the workflow:
+
+```yaml
+platforms: linux/amd64,linux/arm64  # Requires more build minutes
+```
+
+**Current Configuration:**
+- ✅ linux/amd64 only
+- ✅ Optimized for free tier (2,000 min/month)
+- ✅ Suitable for most cloud deployments (AWS, GCP, Azure)
+
+To use in Kubernetes:
 
 ```yaml
 image:
@@ -86,8 +97,6 @@ image:
   tag: latest
   pullPolicy: IfNotPresent
 ```
-
-Docker automatically selects the correct architecture for your node.
 
 ### Using Short Commit Hash Tags
 
