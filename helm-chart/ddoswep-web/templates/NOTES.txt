@@ -1,0 +1,22 @@
+1. Get the application URL by running these commands:
+{{- if .Values.ingress.enabled }}
+  https://{{ .Values.ingress.host }}
+{{- else }}
+  export POD_NAME=$(kubectl get pods --namespace {{ .Values.namespace.name }} -l "app.kubernetes.io/name={{ include "ddoswep-web.name" . }},app.kubernetes.io/instance={{ .Release.Name }}" -o jsonpath="{.items[0].metadata.name}")
+  export CONTAINER_PORT=$(kubectl get pod --namespace {{ .Values.namespace.name }} $POD_NAME -o jsonpath="{.spec.containers[0].ports[0].containerPort}")
+  echo "Visit http://127.0.0.1:3000 to use your application"
+  kubectl --namespace {{ .Values.namespace.name }} port-forward $POD_NAME 3000:$CONTAINER_PORT
+{{- end }}
+
+2. API Server:
+  https://ddos-api.aandd.io
+  Docs: https://ddos-api.aandd.io/docs
+
+3. Monitor the rollout status:
+  kubectl rollout status deployment/{{ include "ddoswep-web.fullname" . }} -n {{ .Values.namespace.name }}
+
+4. View logs:
+  kubectl logs -n {{ .Values.namespace.name }} -l app.kubernetes.io/name={{ include "ddoswep-web.name" . }} --tail=100 -f
+
+5. Verify frontend connectivity to API:
+  API Base URL configured as: {{ .Values.env.NEXT_PUBLIC_API_BASE_URL }}

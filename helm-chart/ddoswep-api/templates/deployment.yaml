@@ -1,0 +1,123 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "ddoswep-api.fullname" . }}
+  namespace: {{ .Values.namespace.name }}
+  labels:
+    {{- include "ddoswep-api.labels" . | nindent 4 }}
+spec:
+  {{- if not .Values.autoscaling.enabled }}
+  replicas: {{ .Values.replicaCount }}
+  {{- end }}
+  selector:
+    matchLabels:
+      {{- include "ddoswep-api.selectorLabels" . | nindent 6 }}
+  template:
+    metadata:
+      labels:
+        {{- include "ddoswep-api.selectorLabels" . | nindent 8 }}
+    spec:
+      {{- with .Values.podSecurityContext }}
+      securityContext:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      containers:
+      - name: api
+        image: "{{ .Values.image.registry }}/{{ .Values.image.repository }}:{{ .Values.image.tag }}"
+        imagePullPolicy: {{ .Values.image.pullPolicy }}
+        ports:
+        - name: http
+          containerPort: {{ .Values.service.targetPort }}
+          protocol: TCP
+
+        {{- with .Values.securityContext }}
+        securityContext:
+          {{- toYaml . | nindent 12 }}
+        {{- end }}
+
+        # Environment variables directly from values.yaml
+        env:
+        # Data Configuration
+        - name: MAX_UPLOAD_MB
+          value: {{ .Values.env.MAX_UPLOAD_MB | quote }}
+        - name: MAX_CAT_CATEGORIES
+          value: {{ .Values.env.MAX_CAT_CATEGORIES | quote }}
+        - name: DATA_DIR
+          value: {{ .Values.env.DATA_DIR | quote }}
+
+        # AI Configuration (from values)
+        - name: ANTHROPIC_API_KEY
+          value: {{ .Values.env.ANTHROPIC_API_KEY | quote }}
+        - name: OLLAMA_BASE_URL
+          value: {{ .Values.env.OLLAMA_BASE_URL | quote }}
+        - name: OLLAMA_MODEL
+          value: {{ .Values.env.OLLAMA_MODEL | quote }}
+        - name: AI_COMPARE_MODE
+          value: {{ .Values.env.AI_COMPARE_MODE | quote }}
+        - name: AI_COMPARE_LOG
+          value: {{ .Values.env.AI_COMPARE_LOG | quote }}
+        - name: AI_PRIMARY
+          value: {{ .Values.env.AI_PRIMARY | quote }}
+
+        # Secrets from pre-created Kubernetes Secret (optional)
+        {{- if .Values.secretName }}
+        - name: ANTHROPIC_API_KEY_SECRET
+          valueFrom:
+            secretKeyRef:
+              name: {{ .Values.secretName }}
+              key: ANTHROPIC_API_KEY
+              optional: true
+        {{- end }}
+
+        {{- if .Values.healthCheck.enabled }}
+        livenessProbe:
+          httpGet:
+            path: /health
+            port: http
+          initialDelaySeconds: {{ .Values.healthCheck.initialDelaySeconds }}
+          periodSeconds: {{ .Values.healthCheck.periodSeconds }}
+          timeoutSeconds: {{ .Values.healthCheck.timeoutSeconds }}
+          failureThreshold: {{ .Values.healthCheck.failureThreshold }}
+
+        readinessProbe:
+          httpGet:
+            path: /health
+            port: http
+          initialDelaySeconds: {{ .Values.healthCheck.initialDelaySeconds }}
+          periodSeconds: {{ .Values.healthCheck.periodSeconds }}
+          timeoutSeconds: {{ .Values.healthCheck.timeoutSeconds }}
+          failureThreshold: {{ .Values.healthCheck.failureThreshold }}
+        {{- end }}
+
+        {{- with .Values.resources }}
+        resources:
+          {{- toYaml . | nindent 12 }}
+        {{- end }}
+
+        {{- if .Values.persistence.enabled }}
+        volumeMounts:
+        - name: data
+          mountPath: {{ .Values.persistence.mountPath }}
+        {{- end }}
+
+      {{- if .Values.persistence.enabled }}
+      volumes:
+      - name: data
+        persistentVolumeClaim:
+          claimName: {{ include "ddoswep-api.fullname" . }}-pvc
+      {{- end }}
+
+      {{- with .Values.nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+
+      {{- with .Values.affinity }}
+      affinity:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+
+      {{- with .Values.tolerations }}
+      tolerations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}

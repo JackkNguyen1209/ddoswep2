@@ -1,0 +1,83 @@
+# DDoS Detection ML Lab - Web Frontend Chart
+
+# Namespace
+namespace:
+  create: false
+  name: ddoswep
+
+# Web Service Configuration
+replicaCount: 1
+
+image:
+  registry: docker.io
+  repository: hoainnuit/ddoswep-web
+  tag: v3
+  pullPolicy: IfNotPresent
+
+service:
+  type: ClusterIP
+  port: 3000
+  targetPort: 3000
+
+ingress:
+  enabled: true
+  className: nginx-external
+  annotations: {}
+  host: ddos.godemo.art
+  path: /
+  pathType: Prefix
+  tls:
+    enabled: false
+
+resources:
+  requests:
+    cpu: 2
+    memory: 4Gi
+  limits:
+    cpu: 2
+    memory: 4Gi
+autoscaling:
+  enabled: false
+  minReplicas: 1
+  maxReplicas: 3
+  targetCPUUtilizationPercentage: 80
+
+# Environment Variables - directly exposed to pods
+env:
+  # API Configuration - required for frontend to communicate with backend
+  NEXT_PUBLIC_API_BASE_URL: "https://ddos-api.godemo.art"
+
+  # Next.js Configuration
+  NODE_ENV: "production"
+
+# Health checks
+healthCheck:
+  enabled: true
+  initialDelaySeconds: 10
+  periodSeconds: 10
+  timeoutSeconds: 5
+  failureThreshold: 3
+
+# Pod security context
+podSecurityContext:
+  runAsNonRoot: false
+  fsGroup: 1000
+
+# Container security context
+securityContext:
+  allowPrivilegeEscalation: false
+  readOnlyRootFilesystem: false
+  capabilities:
+    drop:
+      - ALL
+
+nodeSelector:
+  ddos: "true"
+
+tolerations:
+  - key: "ddos"
+    operator: "Equal"
+    value: "true"
+    effect: "NoSchedule"
+
+affinity: {}

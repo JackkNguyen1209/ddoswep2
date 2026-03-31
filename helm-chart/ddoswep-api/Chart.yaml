@@ -1,0 +1,18 @@
+apiVersion: v2
+name: ddoswep-api
+description: DDoS Detection ML Lab - FastAPI Backend Service
+type: application
+version: 1.0.0
+appVersion: "1.0.0"
+keywords:
+  - ddos
+  - ml
+  - fastapi
+  - backend
+  - api
+maintainers:
+  - name: DDoS Detection Team
+home: https://github.com/hoainnuit/ddoswep
+sources:
+  - https://github.com/hoainnuit/ddoswep
+icon: https://raw.githubusercontent.com/hoainnuit/ddoswep/main/public/favicon.ico

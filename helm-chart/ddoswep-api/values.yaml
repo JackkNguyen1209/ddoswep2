@@ -1,0 +1,108 @@
+# DDoS Detection ML Lab - API Service Chart
+
+# Namespace
+namespace:
+  create: true
+  name: ddoswep
+
+# API Service Configuration
+replicaCount: 1
+
+image:
+  registry: docker.io
+  repository: hoainnuit/ddoswep-api
+  tag: latest
+  pullPolicy: IfNotPresent
+
+service:
+  type: ClusterIP
+  port: 8000
+  targetPort: 8000
+
+ingress:
+  enabled: true
+  className: nginx-external
+  annotations: {}
+  host: ddos-api.godemo.art
+  path: /
+  pathType: Prefix
+  tls:
+    enabled: false
+
+resources:
+  requests:
+    cpu: 4
+    memory: 8Gi
+  limits:
+    cpu: 4
+    memory: 8Gi
+
+autoscaling:
+  enabled: false
+  minReplicas: 1
+  maxReplicas: 3
+  targetCPUUtilizationPercentage: 80
+
+# Environment Variables - directly exposed to pods
+env:
+  # Data configuration
+  MAX_UPLOAD_MB: "200"
+  MAX_CAT_CATEGORIES: "2000"
+  DATA_DIR: "/app/data"
+
+  # Claude API (set empty to disable)
+  ANTHROPIC_API_KEY: ""
+
+  # Ollama Configuration (local AI alternative)
+  OLLAMA_BASE_URL: ""
+  OLLAMA_MODEL: ""
+
+  # AI Compare Mode (for testing/benchmarking)
+  AI_COMPARE_MODE: "false"
+  AI_COMPARE_LOG: "/tmp/ai_compare.jsonl"
+
+  # AI Primary service: "claude" or "ollama"
+  AI_PRIMARY: "claude"
+
+# Pre-created Kubernetes Secret (optional)
+# Create separately: kubectl create secret generic ddoswep-api-secrets --from-literal=ANTHROPIC_API_KEY="sk-ant-..."
+# Then reference: helm install --set secretName="ddoswep-api-secrets"
+secretName: ""
+
+persistence:
+  enabled: true
+  storageClass: ""
+  size: 10Gi
+  mountPath: /app/data
+
+# Health checks
+healthCheck:
+  enabled: true
+  initialDelaySeconds: 10
+  periodSeconds: 10
+  timeoutSeconds: 5
+  failureThreshold: 3
+
+# Pod security context
+podSecurityContext:
+  runAsNonRoot: false
+  fsGroup: 1000
+
+# Container security context
+securityContext:
+  allowPrivilegeEscalation: false
+  readOnlyRootFilesystem: false
+  capabilities:
+    drop:
+      - ALL
+
+nodeSelector:
+  ddos: "true"
+
+tolerations:
+  - key: "ddos"
+    operator: "Equal"
+    value: "true"
+    effect: "NoSchedule"
+
+affinity: {}

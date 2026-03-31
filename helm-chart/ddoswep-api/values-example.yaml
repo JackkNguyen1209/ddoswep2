@@ -1,0 +1,234 @@
+# DDoS Detection ML Lab - API Service Chart
+# Example values with all available configuration options
+
+# ══════════════════════════════════════════════════════════════════════════════
+# NAMESPACE CONFIGURATION
+# ══════════════════════════════════════════════════════════════════════════════
+
+namespace:
+  create: true        # Create the namespace if it doesn't exist
+  name: ddoswep      # Namespace name
+
+# ══════════════════════════════════════════════════════════════════════════════
+# REPLICA & SCALING CONFIGURATION
+# ══════════════════════════════════════════════════════════════════════════════
+
+replicaCount: 1      # Number of pod replicas
+
+autoscaling:
+  enabled: false                          # Enable Horizontal Pod Autoscaler
+  minReplicas: 1                          # Minimum replicas when autoscaling
+  maxReplicas: 3                          # Maximum replicas when autoscaling
+  targetCPUUtilizationPercentage: 80      # Target CPU usage for autoscaling
+
+# ══════════════════════════════════════════════════════════════════════════════
+# DOCKER IMAGE CONFIGURATION
+# ══════════════════════════════════════════════════════════════════════════════
+
+image:
+  registry: docker.io                        # Docker registry
+  repository: hoainnuit/ddoswep-api          # Image repository
+  tag: latest                                # Image tag
+  pullPolicy: IfNotPresent                   # Image pull policy (Always/IfNotPresent/Never)
+
+# ══════════════════════════════════════════════════════════════════════════════
+# SERVICE CONFIGURATION
+# ══════════════════════════════════════════════════════════════════════════════
+
+service:
+  type: ClusterIP           # Service type (ClusterIP/NodePort/LoadBalancer)
+  port: 8000               # External service port
+  targetPort: 8000         # Internal container port
+
+# ══════════════════════════════════════════════════════════════════════════════
+# INGRESS CONFIGURATION (HTTPS/TLS)
+# ══════════════════════════════════════════════════════════════════════════════
+
+ingress:
+  enabled: true                                # Enable ingress
+  className: nginx                             # Ingress class (nginx/traefik/etc)
+
+  # Annotations for ingress controller
+  annotations:
+    cert-manager.io/cluster-issuer: "letsencrypt-prod"  # Auto TLS with Let's Encrypt
+    # Additional annotations examples:
+    # nginx.ingress.kubernetes.io/rate-limit: "100"
+    # nginx.ingress.kubernetes.io/ssl-redirect: "true"
+
+  # Host configuration
+  host: ddos-api.aandd.io                      # Domain for the API
+  path: /                                      # URL path
+  pathType: Prefix                             # Path type (Prefix/Exact/ImplementationSpecific)
+
+  # TLS/HTTPS configuration
+  tls:
+    enabled: true                              # Enable TLS
+    secretName: ddoswep-api-tls                # Secret name for TLS certificate
+
+# ══════════════════════════════════════════════════════════════════════════════
+# RESOURCE LIMITS & REQUESTS
+# ══════════════════════════════════════════════════════════════════════════════
+
+resources:
+  requests:
+    cpu: 500m          # CPU request (minimum guaranteed)
+    memory: 512Mi      # Memory request (minimum guaranteed)
+  limits:
+    cpu: 2000m         # CPU limit (maximum allowed)
+    memory: 2Gi        # Memory limit (maximum allowed)
+
+# ══════════════════════════════════════════════════════════════════════════════
+# PERSISTENT STORAGE CONFIGURATION
+# ══════════════════════════════════════════════════════════════════════════════
+
+persistence:
+  enabled: true              # Enable persistent storage
+  storageClass: ""           # Storage class (empty = default)
+  size: 10Gi                 # Storage size
+  mountPath: /app/data       # Mount path in container
+
+# ══════════════════════════════════════════════════════════════════════════════
+# ENVIRONMENT VARIABLES - EXPOSED IN CONFIGMAP
+# ══════════════════════════════════════════════════════════════════════════════
+# These are stored in ConfigMap and mounted as environment variables
+# Edit these values to change API behavior
+
+env:
+  # ─────────────────────────────────────────────────────────────────────────
+  # Data & Upload Configuration
+  # ─────────────────────────────────────────────────────────────────────────
+  MAX_UPLOAD_MB: "200"              # Maximum file upload size in MB (default: 200)
+  MAX_CAT_CATEGORIES: "2000"        # Max unique categories per column (default: 2000)
+  DATA_DIR: "/app/data"             # Data directory path (default: /app/data)
+
+  # ─────────────────────────────────────────────────────────────────────────
+  # AI/Claude API Configuration
+  # ─────────────────────────────────────────────────────────────────────────
+  ANTHROPIC_API_KEY: ""             # Claude API key (from secrets)
+                                    # Set via: --set env.ANTHROPIC_API_KEY="sk-ant-..."
+                                    # OR: --set secrets.ANTHROPIC_API_KEY="sk-ant-..."
+
+  # ─────────────────────────────────────────────────────────────────────────
+  # Ollama Configuration (Local AI Alternative)
+  # ─────────────────────────────────────────────────────────────────────────
+  OLLAMA_BASE_URL: ""               # Ollama server URL (e.g., http://ollama:11434)
+  OLLAMA_MODEL: ""                  # Ollama model name (e.g., qwen2.5:7b)
+
+  # ─────────────────────────────────────────────────────────────────────────
+  # AI Compare Mode (Testing/Benchmarking)
+  # ─────────────────────────────────────────────────────────────────────────
+  AI_COMPARE_MODE: "false"          # Compare Claude vs Ollama in parallel ("true"/"false")
+  AI_COMPARE_LOG: "/tmp/ai_compare.jsonl"  # Log file for comparison results
+
+  # ─────────────────────────────────────────────────────────────────────────
+  # AI Primary Service Selection
+  # ─────────────────────────────────────────────────────────────────────────
+  AI_PRIMARY: "claude"              # Which service to use ("claude" or "ollama")
+
+# ══════════════════════════════════════════════════════════════════════════════
+# SECRETS CONFIGURATION
+# ══════════════════════════════════════════════════════════════════════════════
+# Sensitive data stored in Kubernetes Secrets (not in ConfigMap)
+# Override env variables if set (secrets take precedence)
+
+secrets:
+  # Claude API Key - sensitive, stored in Secret
+  ANTHROPIC_API_KEY: ""              # Set via: helm install --set secrets.ANTHROPIC_API_KEY="sk-ant-..."
+                                     # Get from: https://console.anthropic.com/account/keys
+
+  # Ollama Configuration - can also be stored as secrets
+  OLLAMA_BASE_URL: ""                # Set via: helm install --set secrets.OLLAMA_BASE_URL="http://..."
+  OLLAMA_MODEL: ""                   # Set via: helm install --set secrets.OLLAMA_MODEL="model-name"
+
+# ══════════════════════════════════════════════════════════════════════════════
+# HEALTH CHECK CONFIGURATION
+# ══════════════════════════════════════════════════════════════════════════════
+
+healthCheck:
+  enabled: true              # Enable health checks
+  initialDelaySeconds: 10    # Delay before first check
+  periodSeconds: 10          # Check interval
+  timeoutSeconds: 5          # Timeout per check
+  failureThreshold: 3        # Restarts pod after this many failures
+
+# ══════════════════════════════════════════════════════════════════════════════
+# SECURITY CONTEXT
+# ══════════════════════════════════════════════════════════════════════════════
+
+podSecurityContext:
+  runAsNonRoot: false        # Run as root user (required for data access)
+  fsGroup: 1000             # Filesystem group ID
+
+securityContext:
+  allowPrivilegeEscalation: false    # Prevent privilege escalation
+  readOnlyRootFilesystem: false      # Writable filesystem (for data writes)
+  capabilities:
+    drop:
+      - ALL                          # Drop all capabilities
+
+# ══════════════════════════════════════════════════════════════════════════════
+# NODE AFFINITY & TOLERATIONS
+# ══════════════════════════════════════════════════════════════════════════════
+
+nodeSelector: {}
+  # Example: Select specific nodes
+  # disktype: ssd
+  # gpu: "true"
+
+tolerations: []
+  # Example: Tolerate node taints
+  # - key: "dedicated"
+  #   operator: "Equal"
+  #   value: "mlworkload"
+  #   effect: "NoSchedule"
+
+affinity: {}
+  # Example: Pod affinity rules
+  # podAffinity:
+  #   preferredDuringSchedulingIgnoredDuringExecution:
+  #   - weight: 100
+  #     podAffinityTerm:
+  #       labelSelector:
+  #         matchExpressions:
+  #         - key: app
+  #           operator: In
+  #           values:
+  #           - cache
+  #       topologyKey: kubernetes.io/hostname
+
+# ══════════════════════════════════════════════════════════════════════════════
+# EXAMPLES - Common Deployment Scenarios
+# ══════════════════════════════════════════════════════════════════════════════
+
+# EXAMPLE 1: Development Deployment
+# helm install ddoswep-api ddoswep-api \
+#   --namespace ddoswep --create-namespace \
+#   --set replicaCount=1 \
+#   --set ingress.enabled=false \
+#   --set persistence.enabled=false \
+#   --set resources.requests.cpu=250m
+
+# EXAMPLE 2: Production with Claude API
+# helm install ddoswep-api ddoswep-api \
+#   --namespace ddoswep --create-namespace \
+#   --set replicaCount=3 \
+#   --set autoscaling.enabled=true \
+#   --set autoscaling.maxReplicas=10 \
+#   --set env.MAX_UPLOAD_MB="500" \
+#   --set persistence.size="50Gi" \
+#   --set secrets.ANTHROPIC_API_KEY="sk-ant-YOUR_KEY"
+
+# EXAMPLE 3: Staging with Ollama
+# helm install ddoswep-api ddoswep-api \
+#   --namespace ddoswep --create-namespace \
+#   --set replicaCount=2 \
+#   --set env.OLLAMA_BASE_URL="http://ollama:11434" \
+#   --set env.OLLAMA_MODEL="qwen2.5:7b" \
+#   --set env.AI_PRIMARY="ollama"
+
+# EXAMPLE 4: Compare Mode (Testing)
+# helm install ddoswep-api ddoswep-api \
+#   --namespace ddoswep --create-namespace \
+#   --set env.AI_COMPARE_MODE="true" \
+#   --set secrets.ANTHROPIC_API_KEY="sk-ant-YOUR_KEY" \
+#   --set env.OLLAMA_BASE_URL="http://ollama:11434"

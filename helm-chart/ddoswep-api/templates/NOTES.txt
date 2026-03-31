@@ -1,0 +1,27 @@
+1. Get the API URL by running these commands:
+{{- if .Values.ingress.enabled }}
+  https://{{ .Values.ingress.host }}
+{{- else }}
+  export POD_NAME=$(kubectl get pods --namespace {{ .Values.namespace.name }} -l "app.kubernetes.io/name={{ include "ddoswep-api.name" . }},app.kubernetes.io/instance={{ .Release.Name }}" -o jsonpath="{.items[0].metadata.name}")
+  export CONTAINER_PORT=$(kubectl get pod --namespace {{ .Values.namespace.name }} $POD_NAME -o jsonpath="{.spec.containers[0].ports[0].containerPort}")
+  echo "Visit http://127.0.0.1:8000 to use your application"
+  kubectl --namespace {{ .Values.namespace.name }} port-forward $POD_NAME 8000:$CONTAINER_PORT
+{{- end }}
+
+2. API Documentation:
+  https://{{ .Values.ingress.host }}/docs
+
+3. Health Check:
+  https://{{ .Values.ingress.host }}/health
+
+4. Monitor the rollout status:
+  kubectl rollout status deployment/{{ include "ddoswep-api.fullname" . }} -n {{ .Values.namespace.name }}
+
+5. View logs:
+  kubectl logs -n {{ .Values.namespace.name }} -l app.kubernetes.io/name={{ include "ddoswep-api.name" . }} --tail=100 -f
+
+{{- if .Values.persistence.enabled }}
+6. Data Persistence:
+  Data is stored in a PersistentVolume at: {{ .Values.persistence.mountPath }}
+  PVC: {{ include "ddoswep-api.fullname" . }}-pvc
+{{- end }}

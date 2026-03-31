@@ -23,7 +23,8 @@
       "Bash(powershell.exe -Command \"Get-ChildItem ''HKLM:\\\\SOFTWARE\\\\Python'' -ErrorAction SilentlyContinue; Get-ChildItem ''HKCU:\\\\SOFTWARE\\\\Python'' -ErrorAction SilentlyContinue\")",
       "Read(//etc/**)",
       "Read(//usr/**)",
-      "Bash(wsl python3:*)"
+      "Bash(wsl python3:*)",
+      "Bash(docker-compose config:*)"
     ]
   }
 }
