@@ -20,6 +20,8 @@ RUN pnpm run build
 # ── Runtime stage ─────────────────────────────────────────────────────────────
 FROM node:20-alpine
 
+RUN apk add --no-cache curl
+
 WORKDIR /app
 
 COPY --from=builder /app/.next ./.next
@@ -29,7 +31,7 @@ COPY --from=builder /app/public ./public
 
 EXPOSE 3000
 
-HEALTHCHECK --interval=30s --timeout=5s --start-period=40s --retries=3 \
-    CMD wget --quiet --tries=1 --spider http://localhost:3000 || exit 1
+HEALTHCHECK --interval=30s --timeout=10s --start-period=50s --retries=3 \
+    CMD curl -f http://localhost:3000 || exit 1
 
 CMD ["npm", "run", "start"]

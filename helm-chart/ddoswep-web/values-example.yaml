@@ -1,0 +1,195 @@
+# DDoS Detection ML Lab - Web Frontend Chart
+# Example values with all available configuration options
+
+# ══════════════════════════════════════════════════════════════════════════════
+# NAMESPACE CONFIGURATION
+# ══════════════════════════════════════════════════════════════════════════════
+
+namespace:
+  create: false       # Do NOT create namespace (API chart creates it)
+  name: ddoswep      # Namespace name (must match API chart)
+
+# ══════════════════════════════════════════════════════════════════════════════
+# REPLICA & SCALING CONFIGURATION
+# ══════════════════════════════════════════════════════════════════════════════
+
+replicaCount: 1      # Number of pod replicas
+
+autoscaling:
+  enabled: false                          # Enable Horizontal Pod Autoscaler
+  minReplicas: 1                          # Minimum replicas when autoscaling
+  maxReplicas: 3                          # Maximum replicas when autoscaling
+  targetCPUUtilizationPercentage: 80      # Target CPU usage for autoscaling
+
+# ══════════════════════════════════════════════════════════════════════════════
+# DOCKER IMAGE CONFIGURATION
+# ══════════════════════════════════════════════════════════════════════════════
+
+image:
+  registry: docker.io                        # Docker registry
+  repository: hoainnuit/ddoswep-web          # Image repository
+  tag: latest                                # Image tag
+  pullPolicy: IfNotPresent                   # Image pull policy
+
+# ══════════════════════════════════════════════════════════════════════════════
+# SERVICE CONFIGURATION
+# ══════════════════════════════════════════════════════════════════════════════
+
+service:
+  type: ClusterIP           # Service type (ClusterIP/NodePort/LoadBalancer)
+  port: 3000               # External service port
+  targetPort: 3000         # Internal container port
+
+# ══════════════════════════════════════════════════════════════════════════════
+# INGRESS CONFIGURATION (HTTPS/TLS)
+# ══════════════════════════════════════════════════════════════════════════════
+
+ingress:
+  enabled: true                                # Enable ingress
+  className: nginx                             # Ingress class (nginx/traefik/etc)
+
+  # Annotations for ingress controller
+  annotations:
+    cert-manager.io/cluster-issuer: "letsencrypt-prod"  # Auto TLS with Let's Encrypt
+    # Additional annotations examples:
+    # nginx.ingress.kubernetes.io/rate-limit: "100"
+
+  # Host configuration
+  host: ddos.aandd.io                         # Domain for the frontend
+  path: /                                     # URL path
+  pathType: Prefix                            # Path type
+
+  # TLS/HTTPS configuration
+  tls:
+    enabled: true                             # Enable TLS
+    secretName: ddoswep-web-tls               # Secret name for TLS certificate
+
+# ══════════════════════════════════════════════════════════════════════════════
+# RESOURCE LIMITS & REQUESTS
+# ══════════════════════════════════════════════════════════════════════════════
+
+resources:
+  requests:
+    cpu: 250m          # CPU request
+    memory: 256Mi      # Memory request
+  limits:
+    cpu: 1000m         # CPU limit
+    memory: 1Gi        # Memory limit
+
+# ══════════════════════════════════════════════════════════════════════════════
+# ENVIRONMENT VARIABLES - EXPOSED IN CONFIGMAP
+# ══════════════════════════════════════════════════════════════════════════════
+# These are stored in ConfigMap and mounted as environment variables
+
+env:
+  # ─────────────────────────────────────────────────────────────────────────
+  # API Configuration - CRITICAL: Must point to API service
+  # ─────────────────────────────────────────────────────────────────────────
+  NEXT_PUBLIC_API_BASE_URL: "https://ddos-api.aandd.io"
+    # This URL is compiled into the Next.js build and cannot be changed at runtime
+    # Must be set correctly during deployment
+    # Examples:
+    #   Development:  "http://localhost:8000"
+    #   Internal:     "http://ddoswep-api:8000" (within cluster)
+    #   External:     "https://ddos-api.aandd.io" (from browser)
+    #   Custom:       "https://api.mycompany.com"
+
+  # ─────────────────────────────────────────────────────────────────────────
+  # Next.js Configuration
+  # ─────────────────────────────────────────────────────────────────────────
+  NODE_ENV: "production"
+    # NODE_ENV values:
+    #   "production"  - Optimized build (smaller, faster)
+    #   "development" - Development build (with debugging)
+
+# ══════════════════════════════════════════════════════════════════════════════
+# HEALTH CHECK CONFIGURATION
+# ══════════════════════════════════════════════════════════════════════════════
+
+healthCheck:
+  enabled: true              # Enable health checks
+  initialDelaySeconds: 10    # Delay before first check
+  periodSeconds: 10          # Check interval
+  timeoutSeconds: 5          # Timeout per check
+  failureThreshold: 3        # Restarts pod after this many failures
+
+# ══════════════════════════════════════════════════════════════════════════════
+# SECURITY CONTEXT
+# ══════════════════════════════════════════════════════════════════════════════
+
+podSecurityContext:
+  runAsNonRoot: false        # Run as root user
+  fsGroup: 1000             # Filesystem group ID
+
+securityContext:
+  allowPrivilegeEscalation: false    # Prevent privilege escalation
+  readOnlyRootFilesystem: false      # Writable filesystem
+  capabilities:
+    drop:
+      - ALL                          # Drop all capabilities
+
+# ══════════════════════════════════════════════════════════════════════════════
+# NODE AFFINITY & TOLERATIONS
+# ══════════════════════════════════════════════════════════════════════════════
+
+nodeSelector: {}
+tolerations: []
+affinity: {}
+
+# ══════════════════════════════════════════════════════════════════════════════
+# IMPORTANT DEPLOYMENT NOTES
+# ══════════════════════════════════════════════════════════════════════════════
+
+# 1. API Base URL (CRITICAL)
+#    The NEXT_PUBLIC_API_BASE_URL must be set correctly:
+#
+#    For Internal Cluster Communication:
+#      NEXT_PUBLIC_API_BASE_URL: "http://ddoswep-api:8000"
+#      (Only works within the Kubernetes cluster)
+#
+#    For External (Browser) Communication:
+#      NEXT_PUBLIC_API_BASE_URL: "https://ddos-api.aandd.io"
+#      (Browser accesses API through ingress)
+#
+#    This is a BUILD-TIME environment variable in Next.js
+#    If you change it after deployment, you must rebuild the image!
+
+# 2. Namespace Coordination
+#    Make sure both charts use the same namespace:
+#      kubectl create namespace ddoswep
+#      helm install ddoswep-api ddoswep-api -n ddoswep
+#      helm install ddoswep-web ddoswep-web -n ddoswep
+
+# ══════════════════════════════════════════════════════════════════════════════
+# EXAMPLES - Common Deployment Scenarios
+# ══════════════════════════════════════════════════════════════════════════════
+
+# EXAMPLE 1: Development (Local Kubernetes)
+# helm install ddoswep-web ddoswep-web \
+#   --namespace ddoswep \
+#   --set replicaCount=1 \
+#   --set ingress.enabled=false \
+#   --set env.NEXT_PUBLIC_API_BASE_URL="http://ddoswep-api:8000"
+
+# EXAMPLE 2: Production with Custom Domain
+# helm install ddoswep-web ddoswep-web \
+#   --namespace ddoswep \
+#   --set replicaCount=3 \
+#   --set autoscaling.enabled=true \
+#   --set autoscaling.maxReplicas=10 \
+#   --set ingress.host="ddos.aandd.io" \
+#   --set env.NEXT_PUBLIC_API_BASE_URL="https://ddos-api.aandd.io"
+
+# EXAMPLE 3: Staging Environment
+# helm install ddoswep-web ddoswep-web \
+#   --namespace ddoswep \
+#   --set replicaCount=2 \
+#   --set env.NEXT_PUBLIC_API_BASE_URL="https://ddos-api-staging.example.com"
+
+# EXAMPLE 4: Upgrade API URL (Requires Rebuild!)
+# Note: Changing NEXT_PUBLIC_API_BASE_URL requires rebuilding the Docker image
+# because it's a build-time environment variable in Next.js
+# helm upgrade ddoswep-web ddoswep-web \
+#   --namespace ddoswep \
+#   --set image.tag=v1.1.0 \
+#   --set env.NEXT_PUBLIC_API_BASE_URL="https://new-api-host.com"
