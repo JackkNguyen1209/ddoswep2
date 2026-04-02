@@ -55,7 +55,7 @@ ingress:
     # nginx.ingress.kubernetes.io/rate-limit: "100"
 
   # Host configuration
-  host: ddos.aandd.io                         # Domain for the frontend
+  host: ddos.godemo.art                         # Domain for the frontend
   path: /                                     # URL path
   pathType: Prefix                            # Path type
 
@@ -85,13 +85,13 @@ env:
   # ─────────────────────────────────────────────────────────────────────────
   # API Configuration - CRITICAL: Must point to API service
   # ─────────────────────────────────────────────────────────────────────────
-  NEXT_PUBLIC_API_BASE_URL: "https://ddos-api.aandd.io"
+  NEXT_PUBLIC_API_BASE_URL: "https://ddos-api.godemo.art"
     # This URL is compiled into the Next.js build and cannot be changed at runtime
     # Must be set correctly during deployment
     # Examples:
     #   Development:  "http://localhost:8000"
     #   Internal:     "http://ddoswep-api:8000" (within cluster)
-    #   External:     "https://ddos-api.aandd.io" (from browser)
+    #   External:     "https://ddos-api.godemo.art" (from browser)
     #   Custom:       "https://api.mycompany.com"
 
   # ─────────────────────────────────────────────────────────────────────────
@@ -148,7 +148,7 @@ affinity: {}
 #      (Only works within the Kubernetes cluster)
 #
 #    For External (Browser) Communication:
-#      NEXT_PUBLIC_API_BASE_URL: "https://ddos-api.aandd.io"
+#      NEXT_PUBLIC_API_BASE_URL: "https://ddos-api.godemo.art"
 #      (Browser accesses API through ingress)
 #
 #    This is a BUILD-TIME environment variable in Next.js
@@ -177,8 +177,8 @@ affinity: {}
 #   --set replicaCount=3 \
 #   --set autoscaling.enabled=true \
 #   --set autoscaling.maxReplicas=10 \
-#   --set ingress.host="ddos.aandd.io" \
-#   --set env.NEXT_PUBLIC_API_BASE_URL="https://ddos-api.aandd.io"
+#   --set ingress.host="ddos.godemo.art" \
+#   --set env.NEXT_PUBLIC_API_BASE_URL="https://ddos-api.godemo.art"
 
 # EXAMPLE 3: Staging Environment
 # helm install ddoswep-web ddoswep-web \

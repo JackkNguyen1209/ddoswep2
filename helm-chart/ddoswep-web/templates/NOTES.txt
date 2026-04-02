@@ -9,8 +9,8 @@
 {{- end }}
 
 2. API Server:
-  https://ddos-api.aandd.io
-  Docs: https://ddos-api.aandd.io/docs
+  https://ddos-api.godemo.art
+  Docs: https://ddos-api.godemo.art/docs
 
 3. Monitor the rollout status:
   kubectl rollout status deployment/{{ include "ddoswep-web.fullname" . }} -n {{ .Values.namespace.name }}

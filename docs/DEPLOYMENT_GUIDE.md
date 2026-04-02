@@ -13,7 +13,7 @@ Complete guide for deploying the DDoS Detection ML Lab with Helm charts on Kuber
 cd helm-chart
 
 # 2. Deploy both services
-helm install ddoswep-api ddoswep-api -n ddoswep
+helm upgrade --install ddoswep-api ddoswep-api -n ddoswep
 helm install ddoswep-web ddoswep-web -n ddoswep
 
 # 3. Verify
