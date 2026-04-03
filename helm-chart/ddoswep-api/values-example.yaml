@@ -56,7 +56,7 @@ ingress:
     # nginx.ingress.kubernetes.io/ssl-redirect: "true"
 
   # Host configuration
-  host: ddos-api.aandd.io                      # Domain for the API
+  host: ddos-api.godemo.art                      # Domain for the API
   path: /                                      # URL path
   pathType: Prefix                             # Path type (Prefix/Exact/ImplementationSpecific)
 
@@ -124,6 +124,17 @@ env:
   # AI Primary Service Selection
   # ─────────────────────────────────────────────────────────────────────────
   AI_PRIMARY: "claude"              # Which service to use ("claude" or "ollama")
+
+  # ─────────────────────────────────────────────────────────────────────────
+  # CORS Configuration
+  # ─────────────────────────────────────────────────────────────────────────
+  ALLOWED_ORIGINS: "https://ddos.godemo.art"
+                                    # Comma-separated list of allowed origins
+                                    # MUST match frontend URL exactly (protocol + domain)
+                                    # Examples:
+                                    #   Development: "http://localhost:3000"
+                                    #   Production:  "https://ddos.godemo.art"
+                                    #   Multiple:    "https://ddos.godemo.art,http://localhost:3000"
 
 # ══════════════════════════════════════════════════════════════════════════════
 # SECRETS CONFIGURATION

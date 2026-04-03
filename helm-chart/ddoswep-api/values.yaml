@@ -22,7 +22,8 @@ service:
 ingress:
   enabled: true
   className: nginx-external
-  annotations: {}
+  annotations:
+    nginx.ingress.kubernetes.io/proxy-body-size: "10g"
   host: ddos-api.godemo.art
   path: /
   pathType: Prefix
@@ -63,6 +64,11 @@ env:
 
   # AI Primary service: "claude" or "ollama"
   AI_PRIMARY: "claude"
+
+  # CORS Configuration
+  # Comma-separated list of allowed origins for CORS
+  # MUST match the frontend URL exactly (protocol + domain + port if non-standard)
+  ALLOWED_ORIGINS: "https://ddos.godemo.art"
 
 # Pre-created Kubernetes Secret (optional)
 # Create separately: kubectl create secret generic ddoswep-api-secrets --from-literal=ANTHROPIC_API_KEY="sk-ant-..."

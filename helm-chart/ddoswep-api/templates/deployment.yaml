@@ -59,6 +59,10 @@ spec:
         - name: AI_PRIMARY
           value: {{ .Values.env.AI_PRIMARY | quote }}
 
+        # CORS Configuration
+        - name: ALLOWED_ORIGINS
+          value: {{ .Values.env.ALLOWED_ORIGINS | quote }}
+
         # Secrets from pre-created Kubernetes Secret (optional)
         {{- if .Values.secretName }}
         - name: ANTHROPIC_API_KEY_SECRET
