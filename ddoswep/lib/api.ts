@@ -219,7 +219,6 @@ export interface PredictResponse {
   probability: number | null
 }
 
-export interface FAMSMethodResult { method: string; selected_features: string[]; scores: Record<string, number> }
 export interface FAMSRequest {
   dataset_id: string; target_column: string
   preprocess_id?: string | null
@@ -229,12 +228,11 @@ export interface FAMSRequest {
 }
 export interface FAMSResponse {
   selection_id: string
-  kept_features: string[]
-  dropped_features: string[]
-  votes: Record<string, number>
-  method_results: FAMSMethodResult[]
-  n_methods: number
-  min_votes: number
+  kept_features: string[]       // features recommended to keep
+  dropped_features: string[]    // features recommended to drop
+  n_selected: number            // numeric features in kept_features
+  variance_removed: number      // removed by VarianceThreshold (step 1)
+  correlation_removed: number   // removed by correlation filter (step 2)
 }
 
 export interface HPORequest {

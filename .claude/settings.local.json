@@ -24,7 +24,16 @@
       "Read(//etc/**)",
       "Read(//usr/**)",
       "Bash(wsl python3:*)",
-      "Bash(docker-compose config:*)"
+      "Bash(docker-compose config:*)",
+      "Bash(python -c ':*)",
+      "Bash(python3 -c ':*)",
+      "Bash(pip install:*)",
+      "Bash(ls /usr/bin/python*)",
+      "Bash(ls /usr/local/bin/python*)",
+      "Bash(python3 -m pip list)",
+      "Read(//root/**)",
+      "Bash(python3 -m py_compile /root/ddoswep2/ddoswep/backend/app/schemas.py)",
+      "Bash(pnpm run:*)"
     ]
   }
 }

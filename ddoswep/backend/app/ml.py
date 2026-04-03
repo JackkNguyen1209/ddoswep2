@@ -14,6 +14,7 @@ from sklearn.ensemble import GradientBoostingClassifier, RandomForestClassifier
 from sklearn.feature_selection import (
     RFE,
     SelectFromModel,
+    SelectKBest,
     VarianceThreshold,
     mutual_info_classif,
 )
@@ -685,6 +686,176 @@ def run_fams_selection(
         ],
         "n_methods": n_methods,
         "min_votes": min_votes,
+    }
+
+
+# ── FAMS 3-step sequential pipeline ──────────────────────────────────────────
+
+def run_fams(
+    dataset_id: str,
+    target_column: str,
+    preprocess_id: Optional[str] = None,
+    n_features: Optional[int] = None,
+    variance_threshold: float = 0.01,
+    corr_threshold: float = 0.95,
+) -> Dict[str, Any]:
+    """FAMS 3-step sequential pipeline (leakage-safe).
+
+    Step 1 – VarianceThreshold: drop features whose variance on the train set
+              falls below `variance_threshold`.
+    Step 2 – Correlation removal: for each pair with |corr| >= `corr_threshold`
+              (computed on train set), drop the member with *lower* absolute
+              correlation to the target.
+    Step 3 – SelectKBest (mutual_info_classif): from the survivors, keep the
+              Top-N features ranked by mutual information with the target
+              (fitted on train set only).
+
+    All fitting steps use the train split → no data leakage.
+    Non-numeric columns are always forwarded to the kept list unchanged.
+    """
+    # ── Load dataset ──────────────────────────────────────────────────────────
+    actual_dataset_id = dataset_id
+    if preprocess_id and preprocess_exists(preprocess_id):
+        pmeta = load_preprocess_meta(preprocess_id)
+        actual_dataset_id = pmeta.get("processed_dataset_id", dataset_id)
+
+    df = load_dataset(actual_dataset_id)
+    if target_column not in df.columns:
+        raise ValueError(f"Target column '{target_column}' not found")
+
+    X_raw = df.drop(columns=[target_column])
+    y_raw = df[target_column]
+
+    # Encode target label (supports binary and multiclass)
+    le = LabelEncoder()
+    if y_raw.dtype == object or str(y_raw.dtype) == "category":
+        y = le.fit_transform(y_raw.astype(str))
+    else:
+        y = y_raw.values.astype(int) if np.issubdtype(y_raw.dtype, np.integer) else y_raw.values
+
+    # Work on numeric columns only; non-numeric are passed through unchanged
+    X_num = X_raw.select_dtypes(include=[np.number]).copy()
+    X_num = X_num.dropna(axis=1, how="all")
+    X_num = X_num.fillna(X_num.median())
+    non_numeric_cols = X_raw.select_dtypes(exclude=[np.number]).columns.tolist()
+
+    features = X_num.columns.tolist()
+    n_total = len(features)
+    if n_total == 0:
+        raise ValueError("No numeric features found for FAMS analysis")
+
+    # ── Leakage-safe train split (fitting happens only on train portion) ───────
+    try:
+        X_train, _, y_train, _ = train_test_split(
+            X_num, y, test_size=0.2, random_state=42, stratify=y
+        )
+    except ValueError:
+        # Fallback when a class has too few samples to stratify
+        X_train, _, y_train, _ = train_test_split(
+            X_num, y, test_size=0.2, random_state=42
+        )
+
+    # ── Step 1: VarianceThreshold (fit on train set) ──────────────────────────
+    vt = VarianceThreshold(threshold=variance_threshold)
+    vt.fit(X_train)
+    var_support = vt.get_support()
+    after_var = [f for f, keep in zip(features, var_support) if keep]
+    variance_removed = n_total - len(after_var)
+
+    if not after_var:
+        raise ValueError(
+            f"VarianceThreshold={variance_threshold} removed all features. "
+            "Lower the threshold and try again."
+        )
+
+    X_train_var = X_train[after_var]
+
+    # ── Step 2: Correlation removal (computed on train set) ───────────────────
+    corr_matrix = X_train_var.corr().abs()
+    # Absolute correlation of each feature with the target (on train set)
+    y_series = pd.Series(y_train, index=X_train.index)
+    target_corr = X_train_var.corrwith(y_series).abs().fillna(0)
+
+    to_drop_corr: set = set()
+    cols = list(corr_matrix.columns)
+    for i in range(len(cols)):
+        if cols[i] in to_drop_corr:
+            continue
+        for j in range(i + 1, len(cols)):
+            if cols[j] in to_drop_corr:
+                continue
+            if corr_matrix.iloc[i, j] >= corr_threshold:
+                # Keep the feature more correlated with the target
+                score_i = float(target_corr.get(cols[i], 0))
+                score_j = float(target_corr.get(cols[j], 0))
+                drop_col = cols[j] if score_i >= score_j else cols[i]
+                to_drop_corr.add(drop_col)
+
+    after_corr = [f for f in after_var if f not in to_drop_corr]
+    correlation_removed = len(after_var) - len(after_corr)
+
+    if not after_corr:
+        # Safety: correlation threshold too aggressive — keep at least 1 feature
+        after_corr = after_var[:1]
+        correlation_removed = len(after_var) - 1
+
+    X_train_corr = X_train[after_corr]
+
+    # ── Step 3: SelectKBest (mutual_info_classif, fit on train set) ───────────
+    n_remaining = len(after_corr)
+    k = (
+        n_features
+        if n_features and 1 <= n_features <= n_remaining
+        else max(2, int(n_remaining * 0.7))
+    )
+
+    if n_remaining <= k:
+        # Nothing further to filter
+        final_features = after_corr
+    else:
+        try:
+            selector = SelectKBest(score_func=mutual_info_classif, k=k)
+            selector.fit(X_train_corr, y_train)
+            kbest_support = selector.get_support()
+            final_features = [f for f, keep in zip(after_corr, kbest_support) if keep]
+        except Exception as exc:
+            logger.warning("FAMS SelectKBest failed (%s); keeping top-%d by order", exc, k)
+            final_features = after_corr[:k]
+
+    # Non-numeric columns are always kept
+    all_kept = final_features + non_numeric_cols
+    all_dropped = [c for c in X_raw.columns if c not in all_kept]
+
+    # ── Persist selection artifact ────────────────────────────────────────────
+    selection_id = f"fams3_{dataset_id}_{uuid.uuid4().hex[:8]}"
+    sel_data = {
+        "selection_id": selection_id,
+        "dataset_id": dataset_id,
+        "target_column": target_column,
+        "mode": "keep",
+        "kept_features": all_kept,
+        "dropped_features": all_dropped,
+        "fams_pipeline": "3step",
+        "fams_variance_threshold": variance_threshold,
+        "fams_corr_threshold": corr_threshold,
+        "fams_variance_removed": variance_removed,
+        "fams_correlation_removed": correlation_removed,
+        "fams_n_selected": len(final_features),
+        "created_at": datetime.datetime.utcnow().isoformat(),
+    }
+    save_selection(selection_id, sel_data)
+    logger.info(
+        "FAMS 3-step: total=%d var_removed=%d corr_removed=%d selected=%d",
+        n_total, variance_removed, correlation_removed, len(final_features),
+    )
+
+    return {
+        "selection_id": selection_id,
+        "kept_features": all_kept,
+        "dropped_features": all_dropped,
+        "n_selected": len(final_features),
+        "variance_removed": variance_removed,
+        "correlation_removed": correlation_removed,
     }
 
 
