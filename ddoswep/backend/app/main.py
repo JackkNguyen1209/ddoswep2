@@ -16,6 +16,7 @@ from .ml import (
     _dtype_label,
     df_to_preview,
     run_details_vi,
+    run_fams,
     run_fams_selection,
     run_feature_apply,
     run_feature_report,
@@ -760,13 +761,15 @@ def feature_apply(req: FeatureApplyRequest):
 
 @app.post("/api/features/fams", response_model=FAMSResponse)
 def feature_fams(req: FAMSRequest):
-    """FAMS 5-method ensemble voting feature selection."""
+    """FAMS 3-step sequential pipeline: VarianceThreshold → Correlation removal → SelectKBest Top-N.
+    All fitting is performed on the train split only (leakage-safe).
+    """
     if not dataset_exists(req.dataset_id):
         raise HTTPException(status_code=404, detail=f"Dataset '{req.dataset_id}' not found")
     if req.preprocess_id and not preprocess_exists(req.preprocess_id):
         raise HTTPException(status_code=404, detail=f"Preprocess artifact '{req.preprocess_id}' not found")
     try:
-        data = run_fams_selection(
+        data = run_fams(
             dataset_id=req.dataset_id,
             target_column=req.target_column,
             preprocess_id=req.preprocess_id,
@@ -777,16 +780,15 @@ def feature_fams(req: FAMSRequest):
     except ValueError as e:
         raise HTTPException(status_code=422, detail=str(e))
     except Exception as e:
-        logger.exception("FAMS selection failed")
+        logger.exception("FAMS 3-step selection failed")
         raise HTTPException(status_code=500, detail=str(e))
     return FAMSResponse(
         selection_id=data["selection_id"],
         kept_features=data["kept_features"],
         dropped_features=data["dropped_features"],
-        votes=data["votes"],
-        method_results=data["method_results"],
-        n_methods=data["n_methods"],
-        min_votes=data["min_votes"],
+        n_selected=data["n_selected"],
+        variance_removed=data["variance_removed"],
+        correlation_removed=data["correlation_removed"],
     )
 
 

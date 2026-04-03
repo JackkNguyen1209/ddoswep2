@@ -299,20 +299,13 @@ class FAMSRequest(BaseModel):
     corr_threshold: float = 0.95
 
 
-class FAMSMethodResult(BaseModel):
-    method: str
-    selected_features: List[str]
-    scores: Dict[str, float]
-
-
 class FAMSResponse(BaseModel):
     selection_id: str
-    kept_features: List[str]
-    dropped_features: List[str]
-    votes: Dict[str, int]           # feature -> number of methods that selected it
-    method_results: List[FAMSMethodResult]
-    n_methods: int
-    min_votes: int                  # threshold used for final selection
+    kept_features: List[str]        # features recommended to keep (= recommended_features)
+    dropped_features: List[str]     # features recommended to drop  (= recommended_drop)
+    n_selected: int                 # number of numeric features in kept_features
+    variance_removed: int           # features removed by VarianceThreshold (step 1)
+    correlation_removed: int        # features removed by correlation filter (step 2)
 
 
 # ── Optuna HPO ───────────────────────────────────────────────────────────────

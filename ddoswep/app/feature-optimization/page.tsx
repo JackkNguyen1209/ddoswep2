@@ -267,9 +267,10 @@ export default function FeatureOptimizationPage() {
 
                 {/* FAMS 5-method ensemble selection */}
                 <div className="border-t border-border pt-4 space-y-2">
-                  <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">FAMS — 5-Method Ensemble</p>
+                  <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">FAMS — 3-Step Pipeline</p>
                   <p className="text-xs text-muted-foreground">
-                    Bầu chọn feature qua 5 phương pháp: Variance, Mutual Info, RFE, Lasso L1, RF Importance.
+                    Pipeline tuần tự: Variance Threshold → Loại tương quan → SelectKBest Top-N (mutual info).
+                    Leakage-safe: toàn bộ fitting chỉ trên train set.
                   </p>
 
                   {/* FAMS options */}
@@ -331,12 +332,21 @@ export default function FeatureOptimizationPage() {
                     <p className="text-xs text-destructive">{famsError}</p>
                   )}
                   {famsResult && (
-                    <Card className="bg-violet-500/10 border-violet-500/30 p-3 text-xs space-y-1">
-                      <p className="font-bold text-violet-700 dark:text-violet-300">
-                        ✓ FAMS xong ({famsResult.n_methods} methods, min {famsResult.min_votes} votes)
-                      </p>
-                      <p>Giữ: <span className="font-bold text-green-600">{famsResult.kept_features.length}</span> · Bỏ: <span className="font-bold text-destructive">{famsResult.dropped_features.length}</span></p>
-                      <p className="text-muted-foreground break-all">ID: <code className="text-violet-600">{famsResult.selection_id}</code></p>
+                    <Card className="bg-violet-500/10 border-violet-500/30 p-3 text-xs space-y-1.5">
+                      <p className="font-bold text-violet-700 dark:text-violet-300">✓ FAMS 3-step hoàn tất</p>
+                      <div className="grid grid-cols-2 gap-x-3 gap-y-0.5 text-[11px]">
+                        <span className="text-muted-foreground">Giữ lại:</span>
+                        <span className="font-bold text-green-600">{famsResult.kept_features.length} đặc trưng</span>
+                        <span className="text-muted-foreground">Loại bỏ:</span>
+                        <span className="font-bold text-destructive">{famsResult.dropped_features.length} đặc trưng</span>
+                        <span className="text-muted-foreground">Bước 1 (Variance):</span>
+                        <span className="font-semibold">−{famsResult.variance_removed}</span>
+                        <span className="text-muted-foreground">Bước 2 (Corr):</span>
+                        <span className="font-semibold">−{famsResult.correlation_removed}</span>
+                        <span className="text-muted-foreground">Bước 3 (Top-N):</span>
+                        <span className="font-semibold">{famsResult.n_selected} chọn</span>
+                      </div>
+                      <p className="text-muted-foreground break-all pt-0.5">ID: <code className="text-violet-600">{famsResult.selection_id}</code></p>
                       {famsResult.dropped_features.length > 0 && (
                         <div className="flex flex-wrap gap-1 pt-1">
                           {famsResult.dropped_features.slice(0, 6).map(f => (
@@ -346,6 +356,33 @@ export default function FeatureOptimizationPage() {
                             <Badge variant="outline" className="text-[10px]">+{famsResult.dropped_features.length - 6} more</Badge>
                           )}
                         </div>
+                      )}
+                      {!applyResult && (
+                        <button
+                          onClick={async () => {
+                            if (!datasetId || !targetColumn || !famsResult) return
+                            setApplying(true)
+                            try {
+                              const r = await api.featureApply({
+                                dataset_id: datasetId,
+                                target_column: targetColumn,
+                                mode: 'drop',
+                                features: famsResult.dropped_features,
+                              })
+                              setApplyResult(r)
+                              localStorage.setItem('selection_id', famsResult.selection_id)
+                            } catch (err) {
+                              setError(err instanceof Error ? err.message : 'Áp dụng FAMS thất bại')
+                            } finally {
+                              setApplying(false)
+                            }
+                          }}
+                          disabled={applying || famsResult.dropped_features.length === 0}
+                          className="w-full mt-1 px-3 py-1.5 rounded bg-violet-600 text-white text-[11px] font-semibold flex items-center justify-center gap-1.5 hover:bg-violet-700 disabled:opacity-50"
+                        >
+                          {applying ? <Loader2 className="w-3 h-3 animate-spin" /> : <Zap className="w-3 h-3" />}
+                          Áp dụng kết quả FAMS
+                        </button>
                       )}
                     </Card>
                   )}
